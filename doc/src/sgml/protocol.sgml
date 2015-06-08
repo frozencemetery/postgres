@@ -1295,6 +1295,42 @@
     of authentication checking.
    </para>
   </sect2>
+
+  <sect2>
+   <title><acronym>GSSAPI</acronym> Session Encryption</title>
+
+   <para>
+    If <productname>PostgreSQL</> was built with
+    <acronym>GSSAPI</acronym> and <acronym>GSSAPI</acronym> support, traffic
+    can also be encrypted using <acronym>GSSAPI</acronym>. To force encryption
+    using <acronym>GSSAPI</acronym>, set require_encrypt in
+    <filename>pg_hba.conf</filename>.
+   </para>
+
+   <para>
+    In order to probe for <acronym>GSSAPI</acronym> support, the client will
+    include in their StartupMessage the parameter gss_encrypt. If the server
+    does not support <acronym>GSSAPI</acronym> or <acronym>GSSAPI</acronym>
+    encryption, the server will error the connection; otherwise, it continues
+    as normal. The client may retry the connection
+    without <acronym>GSSAPI</acronym> encryption support depending on its
+    settings. If the client does not probe support, depending on settings
+    in <filename>pg_hba.conf</filename>, the server may drop
+    <acronym>GSSAPI</acronym>-authenticated connections without encryption.
+   </para>
+
+   <para>
+    If the client has probed <acronym>GSSAPI</acronym> encryption support and
+    the connection is <acronym>GSSAPI</acronym>-authenticated, then after the
+    server sends AuthenticationOk, all traffic between the client and server
+    will be <acronym>GSSAPI</acronym>-encrypted.  See message formats above.
+   </para>
+
+   <para>
+     It is valid to use <acronym>GSSAPI</acronym> encryption over
+     <acronym>SSL</acronym>-encrypted connections.
+   </para>
+  </sect2>
  </sect1>
 
 <sect1 id="protocol-replication">
@@ -2202,7 +2238,9 @@ Notice that although each message includes a byte count at the beginning,
 the message format is defined so that the message end can be found without
 reference to the byte count.  This aids validity checking.  (The CopyData
 message is an exception, because it forms part of a data stream; the contents
-of any individual CopyData message cannot be interpretable on their own.)
+of any individual CopyData message cannot be interpretable on their own.  The
+GSSAPI message type is another exception because GSSAPI does not require
+payloads to include length information.)
 </para>
 
 <variablelist>
@@ -3932,6 +3970,48 @@ FunctionCallResponse (B)
 </listitem>
 </varlistentry>
 
+<varlistentry>
+<term>
+GSSAPI (F &amp; B)
+</term>
+<listitem>
+<para>
+<variablelist>
+<varlistentry>
+<term>
+        Byte1('g')
+</term>
+<listitem>
+<para>
+                Identifies the message as GSSAPI-encrypted data.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Int32
+</term>
+<listitem>
+<para>
+                Length of message contents in bytes, including self.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry>
+<term>
+        Byte<replaceable>n</replaceable>
+</term>
+<listitem>
+<para>
+                GSSAPI-encrypted data.  Once decrypted, will be in a valid
+                message format.
+</para>
+</listitem>
+</varlistentry>
+</variablelist>
+</para>
+</listitem>
+</varlistentry>
 
 <varlistentry>
 <term>

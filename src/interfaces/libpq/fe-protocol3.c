@@ -129,6 +129,58 @@ pqParseInput3(PGconn *conn)
 			return;
 		}
 
+#ifdef ENABLE_GSS
+		/* We want to be ready in both IDLE and BUSY states for encryption */
+		if (id == 'g' && !conn->gss_disable_enc && conn->gctx)
+		{
+			ssize_t encEnd, next;
+
+			encEnd = pggss_inplace_decrypt(conn, msgLength);
+			if (encEnd <= 0)
+			{
+				/* error message placed by pggss_inplace_decrypt() */
+				pqSaveErrorResult(conn);
+				conn->asyncStatus = PGASYNC_READY;
+				pqDropConnection(conn);
+				conn->status = CONNECTION_BAD;
+				return;
+			}
+
+			/* shift contents of buffer to account for slack */
+			encEnd += conn->inStart;
+			next = conn->inStart + msgLength + 5;
+			memmove(conn->inBuffer + encEnd, conn->inBuffer + next,
+					conn->inEnd - next);
+			conn->inEnd = (conn->inEnd - next) + encEnd;
+
+			conn->inCursor = conn->inStart;
+			(void) pqGetc(&id, conn);
+			(void) pqGetInt(&msgLength, 4, conn);
+			msgLength -= 4;
+			if (msgLength != encEnd - conn->inCursor)
+			{
+				/* This isn't a sync error because decrypt was successful */
+				printfPQExpBuffer(&conn->errorMessage,
+								  libpq_gettext(
+									  "server lied about message length: got message length %ld, but expected legnth %d\n"),
+								  encEnd - conn->inCursor, msgLength);
+				/* build an error result holding the error message */
+				pqSaveErrorResult(conn);
+				/* drop out of GetResult wait loop */
+				conn->asyncStatus = PGASYNC_READY;
+
+				pqDropConnection(conn);
+				/* No more connection to backend */
+				conn->status = CONNECTION_BAD;
+			}
+			conn->gss_decrypted_cur = true;
+		}
+		else if (!conn->gss_disable_enc && conn->gss_auth_done &&
+				 !conn->gss_decrypted_cur && id != 'E')
+			/* This could be a sync error, so let's handle it as such. */
+			handleSyncLoss(conn, id, msgLength);
+#endif
+
 		/*
 		 * NOTIFY and NOTICE messages can happen in any state; always process
 		 * them right away.
@@ -415,6 +467,9 @@ pqParseInput3(PGconn *conn)
 		{
 			/* Normal case: parsing agrees with specified length */
 			conn->inStart = conn->inCursor;
+#ifdef ENABLE_GSS
+			conn->gss_decrypted_cur = false;
+#endif
 		}
 		else
 		{
@@ -2082,6 +2137,11 @@ build_startup_packet(const PGconn *conn, char *packet,
 
 	if (conn->client_encoding_initial && conn->client_encoding_initial[0])
 		ADD_STARTUP_OPTION("client_encoding", conn->client_encoding_initial);
+
+#ifdef ENABLE_GSS
+	if (!conn->gss_disable_enc)
+		ADD_STARTUP_OPTION("gss_encrypt", "on");
+#endif
 
 	/* Add any environment-driven GUC settings needed */
 	for (next_eo = options; next_eo->envName; next_eo++)

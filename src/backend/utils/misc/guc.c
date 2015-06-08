@@ -186,6 +186,8 @@ static const char *show_log_file_mode(void);
 static ConfigVariable *ProcessConfigFileInternal(GucContext context,
 						  bool applySettings, int elevel);
 
+static void assign_gss_encrypt(bool newval, void *extra);
+static bool check_gss_encrypt(bool *newval, void **extra, GucSource source);
 
 /*
  * Options for enum values defined in this module.
@@ -477,6 +479,10 @@ static bool assert_enabled;
 /* should be static, but commands/variable.c needs to get at this */
 char	   *role_string;
 
+/* Kerberos and GSSAPI GUCs */
+char	   *pg_krb_server_keyfile;
+bool		pg_krb_caseins_users;
+bool		gss_encrypt;
 
 /*
  * Displayable names for context types (enum GucContext)
@@ -1608,6 +1614,15 @@ static struct config_bool ConfigureNamesBool[] =
 		&data_checksums,
 		false,
 		NULL, NULL, NULL
+	},
+
+	{
+		{"gss_encrypt", PGC_USERSET, CONN_AUTH_SECURITY,
+		 gettext_noop("Whether client wants encryption for this connection."),
+		 NULL,
+		 GUC_NOT_IN_SAMPLE | GUC_DISALLOW_IN_FILE
+		},
+		&gss_encrypt, false, check_gss_encrypt, assign_gss_encrypt, NULL
 	},
 
 	/* End-of-list marker */
@@ -10106,6 +10121,21 @@ show_log_file_mode(void)
 
 	snprintf(buf, sizeof(buf), "%04o", Log_file_mode);
 	return buf;
+}
+
+static void
+assign_gss_encrypt(bool newval, void *extra)
+{
+	gss_encrypt = newval;
+}
+
+static bool
+check_gss_encrypt(bool *newval, void **extra, GucSource source)
+{
+	if (MyProcPort && MyProcPort->hba && MyProcPort->hba->require_encrypt &&
+		!*newval)
+		return false;
+	return true;
 }
 
 #include "guc-file.c"

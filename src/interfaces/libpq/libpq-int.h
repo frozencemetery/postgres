@@ -446,6 +446,10 @@ struct pg_conn
 	gss_name_t	gtarg_nam;		/* GSS target name */
 	gss_buffer_desc ginbuf;		/* GSS input token */
 	gss_buffer_desc goutbuf;	/* GSS output token */
+	bool gss_disable_enc;		/* Does server recognize gss_encrypt? */
+	bool gss_auth_done;			/* Did we finish the AUTH step? */
+	bool gss_decrypted_cur;		/* Is first message in buffer decrypted? */
+	char *gss_enc_require;		/* Can we downgrade to plaintext? */
 #endif
 
 #ifdef ENABLE_SSPI
@@ -641,6 +645,18 @@ extern void pgtls_close(PGconn *conn);
 extern ssize_t pgtls_read(PGconn *conn, void *ptr, size_t len);
 extern bool pgtls_read_pending(PGconn *conn);
 extern ssize_t pgtls_write(PGconn *conn, const void *ptr, size_t len);
+
+/*
+ * GSSAPI functions defined in fe-gss.c
+ */
+#ifdef ENABLE_GSS
+extern ssize_t pggss_inplace_decrypt(PGconn *conn, int gsslen);
+extern int pggss_encrypt(PGconn *conn);
+extern void pg_GSS_error(const char *mprefix, PGconn *conn, OM_uint32 maj_stat,
+						 OM_uint32 min_stat);
+extern int pg_GSS_startup(PGconn *conn);
+extern int pg_GSS_continue(PGconn *conn);
+#endif /* ENABLE_GSS */
 
 /*
  * this is so that we can check if a connection is non-blocking internally
