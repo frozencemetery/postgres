@@ -711,6 +711,7 @@ with_uuid
 with_selinux
 with_openssl
 krb_srvtab
+with_gssapi
 with_python
 with_perl
 with_tcl
@@ -5447,6 +5448,7 @@ fi
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $with_gssapi" >&5
 $as_echo "$with_gssapi" >&6; }
+
 
 
 
