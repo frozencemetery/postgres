@@ -442,6 +442,7 @@ struct pg_conn
 	gss_name_t	gtarg_nam;		/* GSS target name */
 	gss_buffer_desc ginbuf;		/* GSS input token */
 	gss_buffer_desc goutbuf;	/* GSS output token */
+	bool gss_disable_enc;		/* Does server recognize gss_encrypt? */
 #endif
 
 #ifdef ENABLE_SSPI

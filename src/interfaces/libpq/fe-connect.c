@@ -91,8 +91,9 @@ static int ldapServiceLookup(const char *purl, PQconninfoOption *options,
  * application_name in a startup packet.  We hard-wire the value rather
  * than looking into errcodes.h since it reflects historical behavior
  * rather than that of the current code.
+ * Servers that do not support GSS encryption will also return this error.
  */
-#define ERRCODE_APPNAME_UNKNOWN "42704"
+#define ERRCODE_UNKNOWN_PARAM "42704"
 
 /* This is part of the protocol so just define it */
 #define ERRCODE_INVALID_PASSWORD "28P01"
@@ -2552,6 +2553,35 @@ keep_going:						/* We will come back to here until there is
 					if (res->resultStatus != PGRES_FATAL_ERROR)
 						appendPQExpBufferStr(&conn->errorMessage,
 											 libpq_gettext("unexpected message from server during startup\n"));
+#ifdef ENABLE_GSS
+					else if (!conn->gss_disable_enc)
+					{
+						/*
+						 * We tried to request GSS encryption, but the server
+						 * doesn't support it.  Hang up and try again.  A
+						 * connection that doesn't support appname will also
+						 * not support GSSAPI encryption, so this check goes
+						 * before that check.  See comment below.
+						 */
+						const char *sqlstate;
+
+						sqlstate = PQresultErrorField(res, PG_DIAG_SQLSTATE);
+						if (sqlstate &&
+							strcmp(sqlstate, ERRCODE_UNKNOWN_PARAM) == 0)
+						{
+							OM_uint32 minor;
+
+							PQclear(res);
+							conn->gss_disable_enc = true;
+							/* Must drop the old connection */
+							pqDropConnection(conn);
+							conn->status = CONNECTION_NEEDED;
+							gss_delete_sec_context(&minor, &conn->gctx,
+												   GSS_C_NO_BUFFER);
+							goto keep_going;
+						}
+					}
+#endif
 					else if (conn->send_appname &&
 							 (conn->appname || conn->fbappname))
 					{
@@ -2569,7 +2599,7 @@ keep_going:						/* We will come back to here until there is
 
 						sqlstate = PQresultErrorField(res, PG_DIAG_SQLSTATE);
 						if (sqlstate &&
-							strcmp(sqlstate, ERRCODE_APPNAME_UNKNOWN) == 0)
+							strcmp(sqlstate, ERRCODE_UNKNOWN_PARAM) == 0)
 						{
 							PQclear(res);
 							conn->send_appname = false;
