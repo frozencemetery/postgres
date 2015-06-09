@@ -30,6 +30,8 @@
 #endif
 
 #ifdef ENABLE_GSS
+#include "lib/stringinfo.h"
+
 #if defined(HAVE_GSSAPI_H)
 #include <gssapi.h>
 #else
@@ -195,6 +197,13 @@ typedef struct Port
 #endif
 } Port;
 
+
+#ifdef ENABLE_GSS
+/* These functions are implemented in be-secure-gss.c */
+extern size_t
+be_gss_encrypt(Port *port, char msgtype, const char **msgptr, size_t len);
+extern int be_gss_inplace_decrypt(StringInfo inBuf);
+#endif
 
 extern ProtocolVersion FrontendProtocol;
 

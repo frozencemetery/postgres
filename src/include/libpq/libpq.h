@@ -86,4 +86,8 @@ extern void secure_close(Port *port);
 extern ssize_t secure_read(Port *port, void *ptr, size_t len);
 extern ssize_t secure_write(Port *port, void *ptr, size_t len);
 
+#ifdef ENABLE_GSS
+extern bool gss_encrypt;
+#endif
+
 #endif   /* LIBPQ_H */
