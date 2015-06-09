@@ -129,6 +129,33 @@ pqParseInput3(PGconn *conn)
 			return;
 		}
 
+#ifdef ENABLE_GSS
+		/* We want to be ready in both IDLE and BUSY states for encryption */
+		if (id == 'g')
+		{
+			ssize_t encEnd, next;
+
+			encEnd = pggss_inplace_decrypt(conn, msgLength);
+			if (encEnd <= 0)
+			{
+				/* error message placed by pggss_inplace_decrypt() */
+				pqSaveErrorResult(conn);
+				conn->asyncStatus = PGASYNC_READY;
+				pqDropConnection(conn);
+				conn->status = CONNECTION_BAD;
+				return;
+			}
+
+			/* shift contents of buffer to account for slack */
+			encEnd += conn->inStart;
+			next = conn->inStart + msgLength + 5;
+			memmove(conn->inBuffer + encEnd, conn->inBuffer + next,
+					conn->inEnd - next);
+			conn->inEnd = (conn->inEnd - next) + encEnd;
+			continue;
+		}
+#endif
+
 		/*
 		 * NOTIFY and NOTICE messages can happen in any state; always process
 		 * them right away.

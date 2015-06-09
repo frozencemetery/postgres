@@ -82,7 +82,7 @@ pg_GSS_error_int(PQExpBuffer str, const char *mprefix,
 /*
  * GSSAPI errors contain two parts; put both into conn->errorMessage.
  */
-static void
+void
 pg_GSS_error(const char *mprefix, PGconn *conn,
 			 OM_uint32 maj_stat, OM_uint32 min_stat)
 {
