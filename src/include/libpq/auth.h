@@ -26,4 +26,9 @@ extern void ClientAuthentication(Port *port);
 typedef void (*ClientAuthentication_hook_type) (Port *, int);
 extern PGDLLIMPORT ClientAuthentication_hook_type ClientAuthentication_hook;
 
+#ifdef ENABLE_GSS
+void pg_GSS_error(int severity, char *errmsg, OM_uint32 maj_stat,
+				  OM_uint32 min_stat);
+#endif
+
 #endif   /* AUTH_H */

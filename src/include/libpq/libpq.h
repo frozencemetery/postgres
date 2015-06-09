@@ -99,4 +99,8 @@ extern char *SSLCipherSuites;
 extern char *SSLECDHCurve;
 extern bool SSLPreferServerCiphers;
 
+#ifdef ENABLE_GSS
+extern bool gss_encrypt;
+#endif
+
 #endif   /* LIBPQ_H */

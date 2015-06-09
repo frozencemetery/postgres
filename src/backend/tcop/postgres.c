@@ -336,6 +336,7 @@ static int
 SocketBackend(StringInfo inBuf)
 {
 	int			qtype;
+	bool		msg_got = false;
 
 	/*
 	 * Get message type code from the frontend.
@@ -364,6 +365,21 @@ SocketBackend(StringInfo inBuf)
 		}
 		return qtype;
 	}
+
+#ifdef ENABLE_GSS
+	else if (qtype == 'g' && gss_encrypt &&
+			 MyProcPort->hba->auth_method == uaGSS)
+	{
+		/* GSSAPI wrapping implies protocol >= 3 */
+		if (pq_getmessage(inBuf, 0))
+			return EOF;
+		msg_got = true;
+
+		qtype = be_gss_inplace_decrypt(inBuf);
+		if (qtype < 0)
+			return EOF;
+	}
+#endif
 
 	/*
 	 * Validate message type code before trying to read body; if we have lost
@@ -490,7 +506,7 @@ SocketBackend(StringInfo inBuf)
 	 * after the type code; we can read the message contents independently of
 	 * the type.
 	 */
-	if (PG_PROTOCOL_MAJOR(FrontendProtocol) >= 3)
+	if (PG_PROTOCOL_MAJOR(FrontendProtocol) >= 3 && !msg_got)
 	{
 		if (pq_getmessage(inBuf, 0))
 			return EOF;			/* suitable message already logged */

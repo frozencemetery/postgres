@@ -1485,6 +1485,19 @@ socket_putmessage(char msgtype, const char *s, size_t len)
 {
 	if (DoingCopyOut || PqCommBusy)
 		return 0;
+
+#ifdef ENABLE_GSS
+	/* Do not wrap auth requests. */
+	if (MyProcPort->hba->auth_method == uaGSS && gss_encrypt &&
+		msgtype != 'R' && msgtype != 'g')
+	{
+		len = be_gss_encrypt(MyProcPort, msgtype, &s, len);
+		if (len < 0)
+			goto fail;
+		msgtype = 'g';
+	}
+#endif
+
 	PqCommBusy = true;
 	if (msgtype)
 		if (internal_putbytes(&msgtype, 1))
@@ -1500,10 +1513,20 @@ socket_putmessage(char msgtype, const char *s, size_t len)
 	if (internal_putbytes(s, len))
 		goto fail;
 	PqCommBusy = false;
+#ifdef ENABLE_GSS
+	/* if we're GSSAPI encrypting, s was allocated in be_gss_encrypt */
+	if (msgtype == 'g')
+		pfree((char *)s);
+#endif
 	return 0;
 
 fail:
 	PqCommBusy = false;
+#ifdef ENABLE_GSS
+	/* if we're GSSAPI encrypting, s was allocated in be_gss_encrypt */
+	if (msgtype == 'g')
+		pfree((char *)s);
+#endif
 	return EOF;
 }
 
@@ -1518,6 +1541,22 @@ socket_putmessage_noblock(char msgtype, const char *s, size_t len)
 {
 	int res		PG_USED_FOR_ASSERTS_ONLY;
 	int			required;
+
+#ifdef ENABLE_GSS
+	/*
+	 * Because socket_putmessage is also a front-facing function, we need the
+	 * ability to GSSAPI encrypt from either.  Since socket_putmessage_noblock
+	 * calls into socket_putmessage, socket_putmessage will handle freeing the
+	 * allocated string.
+	 */
+	if (gss_encrypt && msgtype != 'R' && msgtype != 'g')
+	{
+		len = be_gss_encrypt(MyProcPort, msgtype, &s, len);
+		if (len < 0)
+			return;
+		msgtype = 'g';
+	}
+#endif
 
 	/*
 	 * Ensure we have enough space in the output buffer for the message header
