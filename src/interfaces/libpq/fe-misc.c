@@ -604,6 +604,11 @@ pqPutMsgEnd(PGconn *conn)
 		memcpy(conn->outBuffer + conn->outMsgStart, &msgLen, 4);
 	}
 
+#ifdef ENABLE_GSS
+	if (pggss_encrypt(conn) < 0)
+		return EOF;
+#endif
+
 	/* Make message eligible to send */
 	conn->outCount = conn->outMsgEnd;
 

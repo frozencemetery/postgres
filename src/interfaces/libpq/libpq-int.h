@@ -443,6 +443,7 @@ struct pg_conn
 	gss_buffer_desc ginbuf;		/* GSS input token */
 	gss_buffer_desc goutbuf;	/* GSS output token */
 	bool gss_disable_enc;		/* Does server recognize gss_encrypt? */
+	bool gss_auth_done;			/* Did we finish the AUTH step? */
 #endif
 
 #ifdef ENABLE_SSPI
@@ -610,6 +611,12 @@ extern int	pq_block_sigpipe(sigset_t *osigset, bool *sigpipe_pending);
 extern void pq_reset_sigpipe(sigset_t *osigset, bool sigpipe_pending,
 				 bool got_epipe);
 #endif
+
+/*
+ * GSSAPI encryption functions defined in fe-secure-gss.c
+ */
+extern ssize_t pggss_inplace_decrypt(PGconn *conn, int gsslen);
+extern int pggss_encrypt(PGconn *conn);
 
 /*
  * this is so that we can check if a connection is non-blocking internally

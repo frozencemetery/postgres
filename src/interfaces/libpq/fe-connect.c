@@ -2513,6 +2513,11 @@ keep_going:						/* We will come back to here until there is
 					/* We are done with authentication exchange */
 					conn->status = CONNECTION_AUTH_OK;
 
+#ifdef ENABLE_GSS
+					if (conn->gctx != 0)
+						conn->gss_auth_done = true;
+#endif
+
 					/*
 					 * Set asyncStatus so that PQgetResult will think that
 					 * what comes back next is the result of a query.  See

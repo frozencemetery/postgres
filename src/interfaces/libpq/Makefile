@@ -44,6 +44,11 @@ OBJS += ip.o md5.o
 # utils/mb
 OBJS += encnames.o wchar.o
 
+
+ifeq ($(with_gssapi),yes)
+OBJS += fe-secure-gss.o
+endif
+
 ifeq ($(PORTNAME), cygwin)
 override shlib = cyg$(NAME)$(DLSUFFIX)
 endif

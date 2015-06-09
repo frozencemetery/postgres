@@ -21,4 +21,9 @@
 extern int	pg_fe_sendauth(AuthRequest areq, PGconn *conn);
 extern char *pg_fe_getauthname(PQExpBuffer errorMessage);
 
+#ifdef ENABLE_GSS
+void pg_GSS_error(const char *mprefix, PGconn *conn, OM_uint32 maj_stat,
+				  OM_uint32 min_stat);
+#endif
+
 #endif   /* FE_AUTH_H */
