@@ -2051,6 +2051,11 @@ build_startup_packet(const PGconn *conn, char *packet,
 	if (conn->client_encoding_initial && conn->client_encoding_initial[0])
 		ADD_STARTUP_OPTION("client_encoding", conn->client_encoding_initial);
 
+#ifdef ENABLE_GSS
+	if (!conn->gss_disable_enc)
+		ADD_STARTUP_OPTION("gss_encrypt", "on");
+#endif
+
 	/* Add any environment-driven GUC settings needed */
 	for (next_eo = options; next_eo->envName; next_eo++)
 	{
