@@ -447,6 +447,7 @@ struct pg_conn
 	gss_buffer_desc goutbuf;	/* GSS output token */
 	bool gss_disable_enc;		/* Does server recognize gss_encrypt? */
 	bool gss_auth_done;			/* Did we finish the AUTH step? */
+	bool gss_decrypted_cur;		/* Is first message in buffer decrypted? */
 #endif
 
 #ifdef ENABLE_SSPI

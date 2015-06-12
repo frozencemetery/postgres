@@ -131,7 +131,7 @@ pqParseInput3(PGconn *conn)
 
 #ifdef ENABLE_GSS
 		/* We want to be ready in both IDLE and BUSY states for encryption */
-		if (id == 'g')
+		if (id == 'g' && !conn->gss_disable_enc && conn->gctx)
 		{
 			ssize_t encEnd, next;
 
@@ -152,8 +152,33 @@ pqParseInput3(PGconn *conn)
 			memmove(conn->inBuffer + encEnd, conn->inBuffer + next,
 					conn->inEnd - next);
 			conn->inEnd = (conn->inEnd - next) + encEnd;
-			continue;
+
+			conn->inCursor = conn->inStart;
+			(void) pqGetc(&id, conn);
+			(void) pqGetInt(&msgLength, 4, conn);
+			msgLength -= 4;
+			if (msgLength != encEnd - conn->inCursor)
+			{
+				/* This isn't a sync error because decrypt was successful */
+				printfPQExpBuffer(&conn->errorMessage,
+								  libpq_gettext(
+									  "server lied about message length: got message length %ld, but expected legnth %d\n"),
+								  encEnd - conn->inCursor, msgLength);
+				/* build an error result holding the error message */
+				pqSaveErrorResult(conn);
+				/* drop out of GetResult wait loop */
+				conn->asyncStatus = PGASYNC_READY;
+
+				pqDropConnection(conn);
+				/* No more connection to backend */
+				conn->status = CONNECTION_BAD;
+			}
+			conn->gss_decrypted_cur = true;
 		}
+		else if (!conn->gss_disable_enc && conn->gss_auth_done &&
+				 !conn->gss_decrypted_cur && id != 'E')
+			/* This could be a sync error, so let's handle it as such. */
+			handleSyncLoss(conn, id, msgLength);
 #endif
 
 		/*
@@ -425,6 +450,9 @@ pqParseInput3(PGconn *conn)
 		{
 			/* Normal case: parsing agrees with specified length */
 			conn->inStart = conn->inCursor;
+#ifdef ENABLE_GSS
+			conn->gss_decrypted_cur = false;
+#endif
 		}
 		else
 		{
