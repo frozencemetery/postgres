@@ -371,6 +371,18 @@ SocketBackend(StringInfo inBuf)
 		if (qtype < 0)
 			return EOF;
 	}
+	else if (gss_encrypt && MyProcPort->hba->auth_method == uaGSS &&
+			 qtype != 'g' && qtype != 'R' )
+	{
+		/*
+		 * Either something malicious is occuring, or we have lost
+		 * synchronization.
+		 */
+		ereport(FATAL,
+				(errcode(ERRCODE_PROTOCOL_VIOLATION),
+				 errmsg("invalid frontend message type %d", qtype)));
+		return EOF;
+	}
 #endif
 
 	/*
