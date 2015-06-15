@@ -188,6 +188,7 @@ static ConfigVariable *ProcessConfigFileInternal(GucContext context,
 
 #ifdef ENABLE_GSS
 static void assign_gss_encrypt(bool newval, void *extra);
+static bool check_gss_encrypt(bool *newval, void **extra, GucSource source);
 #endif
 
 
@@ -1628,7 +1629,7 @@ static struct config_bool ConfigureNamesBool[] =
 		 NULL,
 		 GUC_NOT_IN_SAMPLE | GUC_DISALLOW_IN_FILE
 		},
-		&gss_encrypt, false, NULL, assign_gss_encrypt, NULL
+		&gss_encrypt, false, check_gss_encrypt, assign_gss_encrypt, NULL
 	},
 
 	/* End-of-list marker */
@@ -10131,6 +10132,15 @@ static void
 assign_gss_encrypt(bool newval, void *extra)
 {
 	gss_encrypt = newval;
+}
+
+static bool
+check_gss_encrypt(bool *newval, void **extra, GucSource source)
+{
+	if (MyProcPort && MyProcPort->hba && MyProcPort->hba->require_encrypt &&
+		!*newval)
+		return false;
+	return true;
 }
 
 #include "guc-file.c"
