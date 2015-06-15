@@ -1559,6 +1559,15 @@ parse_hba_auth_opt(char *name, char *val, HbaLine *hbaline, int line_num)
 		else
 			hbaline->include_realm = false;
 	}
+	else if (strcmp(name, "require_encrypt") == 0)
+	{
+		if (hbaline->auth_method != uaGSS)
+			INVALID_AUTH_OPTION("require_encrypt", "gssapi");
+		if (strcmp(val, "1") == 0)
+			hbaline->require_encrypt = true;
+		else
+			hbaline->require_encrypt = false;
+	}
 	else if (strcmp(name, "radiusserver") == 0)
 	{
 		struct addrinfo *gai_result;
