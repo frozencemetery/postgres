@@ -445,6 +445,7 @@ struct pg_conn
 	bool gss_disable_enc;		/* Does server recognize gss_encrypt? */
 	bool gss_auth_done;			/* Did we finish the AUTH step? */
 	bool gss_decrypted_cur;		/* Is first message in buffer decrypted? */
+	char *gss_enc_require;		/* Can we downgrade to plaintext? */
 #endif
 
 #ifdef ENABLE_SSPI
