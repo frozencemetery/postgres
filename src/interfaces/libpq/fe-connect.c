@@ -297,6 +297,12 @@ static const internalPQconninfoOption PQconninfoOptions[] = {
 	offsetof(struct pg_conn, gsslib)},
 #endif
 
+#if defined(ENABLE_GSS)
+	{"gss_enc_require", "GSS_ENC_REQUIRE", "0", NULL,
+		"Require-GSS-encryption", "", 1, /* should be '0' or '1' */
+	offsetof(struct pg_conn, gss_enc_require)},
+#endif
+
 	{"replication", NULL, NULL, NULL,
 		"Replication", "D", 5,
 	offsetof(struct pg_conn, replication)},
@@ -2559,14 +2565,16 @@ keep_going:						/* We will come back to here until there is
 						appendPQExpBufferStr(&conn->errorMessage,
 											 libpq_gettext("unexpected message from server during startup\n"));
 #ifdef ENABLE_GSS
-					else if (!conn->gss_disable_enc)
+					else if (!conn->gss_disable_enc &&
+							 *conn->gss_enc_require != '1')
 					{
 						/*
 						 * We tried to request GSS encryption, but the server
-						 * doesn't support it.  Hang up and try again.  A
-						 * connection that doesn't support appname will also
-						 * not support GSSAPI encryption, so this check goes
-						 * before that check.  See comment below.
+						 * doesn't support it.  Retries are permitted here, so
+						 * hang up and try again.  A connection that doesn't
+						 * support appname will also not support GSSAPI
+						 * encryption, so this check goes before that check.
+						 * See comment below.
 						 */
 						const char *sqlstate;
 
@@ -2614,6 +2622,15 @@ keep_going:						/* We will come back to here until there is
 							goto keep_going;
 						}
 					}
+#ifdef ENABLE_GSS
+					else if (*conn->gss_enc_require == '1')
+						/*
+						 * It has been determined that appname was not the
+						 * cause of connection failure, so give up.
+						 */
+						appendPQExpBufferStr(&conn->errorMessage,
+											 libpq_gettext("Server does not support required GSS encryption\n"));
+#endif
 
 					/*
 					 * if the resultStatus is FATAL, then conn->errorMessage
