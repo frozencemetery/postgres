@@ -913,9 +913,10 @@ omicron         bryanh                  guest1
     <productname>GSSAPI</productname> with <productname>Kerberos</productname>
     authentication according to RFC 1964. <productname>GSSAPI</productname>
     provides automatic authentication (single sign-on) for systems
-    that support it. The authentication itself is secure, but the
-    data sent over the database connection will be sent unencrypted unless
-    <acronym>SSL</acronym> is used.
+    that support it. The authentication itself is secure, and GSSAPI can be
+    used for connection encryption as well (see the
+    <literal>require_encrypt</literal> parameter below); <acronym>SSL</acronym>
+    can also be used for connection security.
    </para>
 
    <para>
@@ -1037,6 +1038,18 @@ omicron         bryanh                  guest1
         is set, only users of that realm will be accepted.  If it is not set,
         users of any realm can connect, subject to whatever user name mapping
         is done.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry>
+      <term><literal>require_encrypt</literal></term>
+      <listitem>
+       <para>
+        Whether to require GSSAPI encryption.  Default is off, which causes
+        GSSAPI encryption to be enabled if available and requested for
+        compatability with old clients.  It is recommended to set this unless
+        old clients are present.
        </para>
       </listitem>
      </varlistentry>
