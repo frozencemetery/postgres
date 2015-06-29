@@ -1833,7 +1833,7 @@ pg_dumpall -p 5432 | psql -d postgres -p 5433
   </para>
 
   <para>
-   To prevent spoofing on TCP connections, the best solution is to use
+   To prevent spoofing on TCP connections, one possible solution is to use
    SSL certificates and make sure that clients check the server's certificate.
    To do that, the server
    must be configured to accept only <literal>hostssl</> connections (<xref
@@ -1842,6 +1842,15 @@ pg_dumpall -p 5432 | psql -d postgres -p 5433
    <literal>sslmode=verify-ca</> or
    <literal>verify-full</> and have the appropriate root certificate
    file installed (<xref linkend="libq-ssl-certificates">).
+  </para>
+
+  <para>
+   Another way of preventing spoofing on TCP connections is to use GSSAPI
+   encryption. In order to force all GSSAPI connections to be encrypted, one
+   should set <literal>require_encrypt</> in <filename>pg_hba.conf</> on GSS
+   connections. Then, using Kerberos, the client and server will mutually
+   authenticate, and the connection will be encrypted once the authentication
+   step is complete.
   </para>
  </sect1>
 
@@ -1957,6 +1966,15 @@ pg_dumpall -p 5432 | psql -d postgres -p 5433
       (<literal>hostssl</>). Also, clients can specify that they
       connect to servers only via SSL. <application>Stunnel</> or
       <application>SSH</> can also be used to encrypt transmissions.
+     </para>
+
+     <para>
+      GSSAPI connections can also encrypt all data sent across the
+      network. In the <filename>pg_hba.conf</> file, the GSS authenticaion
+      method has a parameter to require encryption; otherwise, connections
+      will be encrypted if available and requiested by the client. On the
+      client side, there is also a parameter to require GSSAPI encryption
+      support from the server.
      </para>
     </listitem>
   </varlistentry>
