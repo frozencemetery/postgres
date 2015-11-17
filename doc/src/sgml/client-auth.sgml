@@ -915,7 +915,7 @@ omicron         bryanh                  guest1
     provides automatic authentication (single sign-on) for systems
     that support it. The authentication itself is secure, but the
     data sent over the database connection will be sent unencrypted unless
-    <acronym>SSL</acronym> is used.
+    <acronym>SSL</acronym> or <acronym>GSSAPI</acronym> are used.
    </para>
 
    <para>

@@ -68,6 +68,7 @@ typedef struct
 #include "datatype/timestamp.h"
 #include "libpq/hba.h"
 #include "libpq/pqcomm.h"
+#include "lib/stringinfo.h"
 
 
 typedef enum CAC_state
@@ -88,6 +89,9 @@ typedef struct
 	gss_cred_id_t cred;			/* GSSAPI connection cred's */
 	gss_ctx_id_t ctx;			/* GSSAPI connection context */
 	gss_name_t	name;			/* GSSAPI client name */
+	StringInfoData buf;			/* GSSAPI encryption data buffering */
+	bool should_encrypt;		/* GSSAPI encryption start */
+	StringInfoData writebuf;	/* GSSAPI nonblocking write buffering */
 #endif
 } pg_gssinfo;
 #endif
@@ -213,6 +217,33 @@ extern void be_tls_get_version(Port *port, char *ptr, size_t len);
 extern void be_tls_get_cipher(Port *port, char *ptr, size_t len);
 extern void be_tls_get_peerdn_name(Port *port, char *ptr, size_t len);
 #endif
+
+#ifdef ENABLE_GSS
+int pg_GSS_recvauth(Port *port);
+ssize_t be_gssapi_read(Port *port, void *ptr, size_t len);
+ssize_t be_gssapi_write(Port *port, void *ptr, size_t len);
+
+/* GUC */
+extern char	   *pg_krb_server_keyfile;
+extern bool		pg_krb_caseins_users;
+
+/*
+ * Maximum accepted size of GSS and SSPI authentication tokens.
+ *
+ * Kerberos tickets are usually quite small, but the TGTs issued by Windows
+ * domain controllers include an authorization field known as the Privilege
+ * Attribute Certificate (PAC), which contains the user's Windows permissions
+ * (group memberships etc.). The PAC is copied into all tickets obtained on
+ * the basis of this TGT (even those issued by Unix realms which the Windows
+ * realm trusts), and can be several kB in size. The maximum token size
+ * accepted by Windows systems is determined by the MaxAuthToken Windows
+ * registry setting. Microsoft recommends that it is not set higher than
+ * 65535 bytes, so that seems like a reasonable limit for us as well.
+ */
+#define PG_MAX_AUTH_TOKEN_LENGTH       65535
+#endif
+
+extern void sendAuthRequest(Port *port, AuthRequest areq);
 
 extern ProtocolVersion FrontendProtocol;
 
