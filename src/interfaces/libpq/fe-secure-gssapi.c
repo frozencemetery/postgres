@@ -26,7 +26,7 @@ pg_GSS_should_crypto(PGconn *conn)
 	OM_uint32 major, minor;
 	int open = 1;
 
-	if (conn->gctx == GSS_C_NO_CONTEXT)
+	if (conn->gctx == GSS_C_NO_CONTEXT || conn->gss_disable_enc)
 		return 0;
 	else if (conn->gencrypt)
 		return 1;

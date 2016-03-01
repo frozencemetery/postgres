@@ -29,6 +29,8 @@ be_gssapi_should_crypto(Port *port)
 
 	if (port->gss->ctx == GSS_C_NO_CONTEXT)
 		return 0;
+	else if (!gss_encrypt)
+		return 0;
 	else if (port->gss->should_encrypt)
 		return 1;
 

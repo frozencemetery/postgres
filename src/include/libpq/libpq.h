@@ -99,5 +99,6 @@ extern bool ssl_loaded_verify_locations;
 extern char *SSLCipherSuites;
 extern char *SSLECDHCurve;
 extern bool SSLPreferServerCiphers;
+extern bool gss_encrypt;
 
 #endif   /* LIBPQ_H */

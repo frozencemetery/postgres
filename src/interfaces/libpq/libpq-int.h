@@ -451,6 +451,8 @@ struct pg_conn
 	bool gencrypt;				/* GSS is ready for encryption */
 	PQExpBufferData gwritebuf;	/* GSS nonblocking write buffering */
 	size_t gwritecurs;			/* GSS write buffer position */
+	bool gss_disable_enc;		/* GSS encryption is supported by server */
+	char *gss_enc_require;		/* Can we downgrade to plaintext? */
 #endif
 
 #ifdef ENABLE_SSPI
