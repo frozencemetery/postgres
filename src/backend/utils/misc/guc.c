@@ -186,7 +186,6 @@ static const char *show_log_file_mode(void);
 static ConfigVariable *ProcessConfigFileInternal(GucContext context,
 						  bool applySettings, int elevel);
 
-
 /*
  * Options for enum values defined in this module.
  *
@@ -497,7 +496,6 @@ static bool assert_enabled;
 
 /* should be static, but commands/variable.c needs to get at this */
 char	   *role_string;
-
 
 /*
  * Displayable names for context types (enum GucContext)

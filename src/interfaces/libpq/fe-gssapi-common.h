@@ -17,5 +17,6 @@
 
 void pg_GSS_error(const char *mprefix, PGconn *conn,
 				  OM_uint32 maj_stat, OM_uint32 min_stat);
+bool pg_GSS_should_encrypt(PGconn *conn);
 
 #endif /* FE_GSSAPI_COMMON_H */
