@@ -32,7 +32,7 @@
 #include "catalog/pg_db_role_setting.h"
 #include "catalog/pg_tablespace.h"
 #include "libpq/auth.h"
-#include "libpq/libpq-be.h"
+#include "libpq/libpq.h"
 #include "mb/pg_wchar.h"
 #include "miscadmin.h"
 #include "pgstat.h"
@@ -1086,6 +1086,13 @@ process_startup_options(Port *port, bool am_superuser)
 		gucopts = lnext(gucopts);
 
 		SetConfigOption(name, value, gucctx, PGC_S_CLIENT);
+	}
+
+	if (!gss_encrypt && port->hba->require_encrypt)
+	{
+		ereport(FATAL, (errcode(ERRCODE_INVALID_AUTHORIZATION_SPECIFICATION),
+						errmsg("GSSAPI encryption required from user \"%s\"",
+							   port->user_name)));
 	}
 }
 

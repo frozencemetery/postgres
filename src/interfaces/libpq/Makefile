@@ -49,7 +49,7 @@ OBJS += fe-secure-openssl.o
 endif
 
 ifeq ($(with_gssapi),yes)
-OBJS += fe-gssapi-common.o
+OBJS += fe-gssapi-common.o fe-secure-gssapi.o
 endif
 
 ifeq ($(PORTNAME), cygwin)

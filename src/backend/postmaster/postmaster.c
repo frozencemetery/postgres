@@ -2355,6 +2355,10 @@ ConnCreate(int serverFd)
 		ExitPostmaster(1);
 	}
 #endif
+#ifdef ENABLE_GSS
+	initStringInfo(&port->gss->buf);
+	initStringInfo(&port->gss->writebuf);
+#endif
 #endif
 
 	return port;
@@ -2371,7 +2375,15 @@ ConnFree(Port *conn)
 	secure_close(conn);
 #endif
 	if (conn->gss)
+	{
+#ifdef ENABLE_GSS
+		if (conn->gss->buf.data)
+			pfree(conn->gss->buf.data);
+		if (conn->gss->writebuf.data)
+			pfree(conn->gss->writebuf.data);
+#endif
 		free(conn->gss);
+	}
 	free(conn);
 }
 
