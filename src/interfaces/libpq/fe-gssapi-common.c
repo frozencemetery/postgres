@@ -61,3 +61,15 @@ pg_GSS_error(const char *mprefix, PGconn *conn,
 	/* Add the minor codes as well */
 	pg_GSS_error_int(&conn->errorMessage, mprefix, min_stat, GSS_C_MECH_CODE);
 }
+
+/*
+ * Only consider encryption when GSS context is complete
+ */
+ssize_t
+pg_GSS_should_crypto(PGconn *conn)
+{
+	if (conn->gctx == GSS_C_NO_CONTEXT)
+		return 0;
+	else
+		return conn->gss_auth_done && !conn->gss_disable_enc;
+}

@@ -77,6 +77,7 @@ typedef struct HbaLine
 	bool		clientcert;
 	char	   *krb_realm;
 	bool		include_realm;
+	bool		require_encrypt;
 	char	   *radiusserver;
 	char	   *radiussecret;
 	char	   *radiusidentifier;

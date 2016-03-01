@@ -915,7 +915,7 @@ omicron         bryanh                  guest1
     provides automatic authentication (single sign-on) for systems
     that support it. The authentication itself is secure, but the
     data sent over the database connection will be sent unencrypted unless
-    <acronym>SSL</acronym> is used.
+    <acronym>SSL</acronym> or <acronym>GSSAPI</acronym> encryption is in use.
    </para>
 
    <para>
@@ -1043,6 +1043,18 @@ omicron         bryanh                  guest1
         is set, only users of that realm will be accepted.  If it is not set,
         users of any realm can connect, subject to whatever user name mapping
         is done.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="gssapi-require-encrypt" xreflabel="require_encrypt">
+      <term><literal>require_encrypt</literal></term>
+      <listitem>
+       <para>
+        Require GSSAPI encryption.  Defaults to off, which enables GSSAPI
+        encryption only when both available and requested to maintain
+        compatability with old clients.  This setting should be enabled unless
+        old clients are present.
        </para>
       </listitem>
      </varlistentry>
