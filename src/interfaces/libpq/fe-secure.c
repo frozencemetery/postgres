@@ -213,6 +213,13 @@ pqsecure_read(PGconn *conn, void *ptr, size_t len)
 	}
 	else
 #endif
+#ifdef ENABLE_GSS
+	if (conn->gctx != GSS_C_NO_CONTEXT)
+	{
+		n = pg_GSS_read(conn, ptr, len);
+	}
+	else
+#endif
 	{
 		n = pqsecure_raw_read(conn, ptr, len);
 	}
@@ -279,7 +286,7 @@ pqsecure_raw_read(PGconn *conn, void *ptr, size_t len)
  * to determine whether to continue/retry after error.
  */
 ssize_t
-pqsecure_write(PGconn *conn, const void *ptr, size_t len)
+pqsecure_write(PGconn *conn, void *ptr, size_t len)
 {
 	ssize_t		n;
 
@@ -287,6 +294,13 @@ pqsecure_write(PGconn *conn, const void *ptr, size_t len)
 	if (conn->ssl_in_use)
 	{
 		n = pgtls_write(conn, ptr, len);
+	}
+	else
+#endif
+#ifdef ENABLE_GSS
+	if (conn->gctx != GSS_C_NO_CONTEXT)
+	{
+		n = pg_GSS_write(conn, ptr, len);
 	}
 	else
 #endif

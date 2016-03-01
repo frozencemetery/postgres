@@ -2798,6 +2798,10 @@ makeEmptyPGconn(void)
 	conn->wait_ssl_try = false;
 	conn->ssl_in_use = false;
 #endif
+#ifdef ENABLE_GSS
+	initPQExpBuffer(&conn->gbuf);
+	initPQExpBuffer(&conn->gwritebuf);
+#endif
 
 	/*
 	 * We try to send at least 8K at a time, which is the usual size of pipe
@@ -2914,6 +2918,10 @@ freePGconn(PGconn *conn)
 	if (conn->krbsrvname)
 		free(conn->krbsrvname);
 #endif
+#if defined(ENABLE_GSS)
+	termPQExpBuffer(&conn->gbuf);
+	termPQExpBuffer(&conn->gwritebuf);
+#endif
 #if defined(ENABLE_GSS) && defined(ENABLE_SSPI)
 	if (conn->gsslib)
 		free(conn->gsslib);
@@ -3019,6 +3027,8 @@ closePGconn(PGconn *conn)
 			gss_release_buffer(&min_s, &conn->ginbuf);
 		if (conn->goutbuf.length)
 			gss_release_buffer(&min_s, &conn->goutbuf);
+		resetPQExpBuffer(&conn->gbuf);
+		resetPQExpBuffer(&conn->gwritebuf);
 	}
 #endif
 #ifdef ENABLE_SSPI
