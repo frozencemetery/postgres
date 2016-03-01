@@ -596,10 +596,12 @@ sendAuthRequest(Port *port, AuthRequest areq)
 	pq_endmessage(&buf);
 
 	/*
-	 * Flush message so client will see it, except for AUTH_REQ_OK, which need
-	 * not be sent until we are ready for queries.
+	 * In most cases, we do not need to send AUTH_REQ_OK until we are ready
+	 * for queries.  However, if we are doing GSSAPI encryption, that request
+	 * must go out immediately to ensure that all messages which follow the
+	 * AUTH_REQ_OK are not grouped with it and can therefore be encrypted.
 	 */
-	if (areq != AUTH_REQ_OK)
+	if (areq != AUTH_REQ_OK || port->gss != NULL)
 		pq_flush();
 
 	CHECK_FOR_INTERRUPTS();
