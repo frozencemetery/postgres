@@ -1356,6 +1356,18 @@ postgresql://%2Fvar%2Flib%2Fpostgresql/dbname
       </listitem>
      </varlistentry>
 
+     <varlistentry id="libpq-connect-gss-enc-require" xreflabel="gss-enc-require">
+      <term><literal>gss_enc_require</literal></term>
+      <listitem>
+       <para>
+        If set, whether to require GSSAPI encryption support from the remote
+        server.  Defaults to unset, which will cause the client to fall back
+        to not using GSSAPI encryption if the server does not support
+        encryption through GSSAPI.
+       </para>
+      </listitem>
+     </varlistentry>
+
      <varlistentry id="libpq-connect-service" xreflabel="service">
       <term><literal>service</literal></term>
       <listitem>

@@ -72,6 +72,10 @@ static int ldapServiceLookup(const char *purl, PQconninfoOption *options,
 				  PQExpBuffer errorMessage);
 #endif
 
+#ifdef ENABLE_GSS
+#include "fe-gssapi-common.h"
+#endif
+
 #include "libpq/ip.h"
 #include "mb/pg_wchar.h"
 
@@ -91,8 +95,10 @@ static int ldapServiceLookup(const char *purl, PQconninfoOption *options,
  * application_name in a startup packet.  We hard-wire the value rather
  * than looking into errcodes.h since it reflects historical behavior
  * rather than that of the current code.
+ *
+ * Servers that do not support GSSAPI encryption will also return this error.
  */
-#define ERRCODE_APPNAME_UNKNOWN "42704"
+#define ERRCODE_UNKNOWN_PARAM "42704"
 
 /* This is part of the protocol so just define it */
 #define ERRCODE_INVALID_PASSWORD "28P01"
@@ -294,6 +300,12 @@ static const internalPQconninfoOption PQconninfoOptions[] = {
 	{"gsslib", "PGGSSLIB", NULL, NULL,
 		"GSS-library", "", 7,	/* sizeof("gssapi") = 7 */
 	offsetof(struct pg_conn, gsslib)},
+#endif
+
+#if defined(ENABLE_GSS)
+	{"gss_enc_require", "GSS_ENC_REQUIRE", "0", NULL,
+		"Require-GSS-encryption", "", 1, /* should be '0' or '1' */
+	 offsetof(struct pg_conn, gss_enc_require)},
 #endif
 
 	{"replication", NULL, NULL, NULL,
@@ -2518,6 +2530,25 @@ keep_going:						/* We will come back to here until there is
 					/* We are done with authentication exchange */
 					conn->status = CONNECTION_AUTH_OK;
 
+#ifdef ENABLE_GSS
+					if (conn->gctx != 0)
+						conn->gss_auth_done = true;
+
+					if (pg_GSS_should_crypto(conn))
+					{
+						/*
+						 * If we've any data from the server buffered, it's
+						 * encrypted and we need to decrypt it.  Pass it back
+						 * down a layer to decrypt.  At this point in time,
+						 * conn->inStart and conn->inCursor match.
+						 */
+						appendBinaryPQExpBuffer(&conn->gwritebuf,
+												conn->inBuffer + conn->inStart,
+												conn->inEnd - conn->inStart);
+						conn->inEnd = conn->inStart;
+					}
+#endif
+
 					/*
 					 * Set asyncStatus so that PQgetResult will think that
 					 * what comes back next is the result of a query.  See
@@ -2558,6 +2589,37 @@ keep_going:						/* We will come back to here until there is
 					if (res->resultStatus != PGRES_FATAL_ERROR)
 						appendPQExpBufferStr(&conn->errorMessage,
 											 libpq_gettext("unexpected message from server during startup\n"));
+#ifdef ENABLE_GSS
+					else if (!conn->gss_disable_enc &&
+							 *conn->gss_enc_require != '1')
+					{
+						/*
+						 * We tried to request GSSAPI encryption, but the
+						 * server doesn't support it.  Retries are permitted
+						 * here, so hang up and try again.  A connection that
+						 * doesn't rupport appname will also not support
+						 * GSSAPI encryption, so this check goes before that
+						 * check.  See comment below.
+						 */
+						const char *sqlstate;
+
+						sqlstate = PQresultErrorField(res, PG_DIAG_SQLSTATE);
+						if (sqlstate &&
+							strcmp(sqlstate, ERRCODE_UNKNOWN_PARAM) == 0)
+						{
+							OM_uint32 minor;
+
+							PQclear(res);
+							conn->gss_disable_enc = true;
+							/* Must drop the old connection */
+							pqDropConnection(conn, true);
+							conn->status = CONNECTION_NEEDED;
+							gss_delete_sec_context(&minor, &conn->gctx,
+												   GSS_C_NO_BUFFER);
+							goto keep_going;
+						}
+					}
+#endif
 					else if (conn->send_appname &&
 							 (conn->appname || conn->fbappname))
 					{
@@ -2575,7 +2637,7 @@ keep_going:						/* We will come back to here until there is
 
 						sqlstate = PQresultErrorField(res, PG_DIAG_SQLSTATE);
 						if (sqlstate &&
-							strcmp(sqlstate, ERRCODE_APPNAME_UNKNOWN) == 0)
+							strcmp(sqlstate, ERRCODE_UNKNOWN_PARAM) == 0)
 						{
 							PQclear(res);
 							conn->send_appname = false;
@@ -2585,7 +2647,17 @@ keep_going:						/* We will come back to here until there is
 							goto keep_going;
 						}
 					}
-
+#ifdef ENABLE_GSS
+					else if (*conn->gss_enc_require == '1')
+					{
+						/*
+						 * It has been determined that appname was not the
+						 * cause of connection failure, so give up.
+						 */
+						appendPQExpBufferStr(&conn->errorMessage,
+											 libpq_gettext("Server does not support required GSSAPI encryption\n"));
+					}
+#endif
 					/*
 					 * if the resultStatus is FATAL, then conn->errorMessage
 					 * already has a copy of the error; needn't copy it back.
@@ -2798,6 +2870,10 @@ makeEmptyPGconn(void)
 	conn->wait_ssl_try = false;
 	conn->ssl_in_use = false;
 #endif
+#ifdef ENABLE_GSS
+	initPQExpBuffer(&conn->gbuf);
+	initPQExpBuffer(&conn->gwritebuf);
+#endif
 
 	/*
 	 * We try to send at least 8K at a time, which is the usual size of pipe
@@ -2914,6 +2990,10 @@ freePGconn(PGconn *conn)
 	if (conn->krbsrvname)
 		free(conn->krbsrvname);
 #endif
+#if defined(ENABLE_GSS)
+	termPQExpBuffer(&conn->gbuf);
+	termPQExpBuffer(&conn->gwritebuf);
+#endif
 #if defined(ENABLE_GSS) && defined(ENABLE_SSPI)
 	if (conn->gsslib)
 		free(conn->gsslib);
@@ -3019,6 +3099,8 @@ closePGconn(PGconn *conn)
 			gss_release_buffer(&min_s, &conn->ginbuf);
 		if (conn->goutbuf.length)
 			gss_release_buffer(&min_s, &conn->goutbuf);
+		resetPQExpBuffer(&conn->gbuf);
+		resetPQExpBuffer(&conn->gwritebuf);
 	}
 #endif
 #ifdef ENABLE_SSPI
