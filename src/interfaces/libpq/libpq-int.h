@@ -23,6 +23,7 @@
 /* We assume libpq-fe.h has already been included. */
 #include "postgres_fe.h"
 #include "libpq-events.h"
+#include "lib/stringinfo.h"
 
 #include <time.h>
 #include <sys/types.h>
@@ -445,6 +446,14 @@ struct pg_conn
 	gss_name_t	gtarg_nam;		/* GSS target name */
 	gss_buffer_desc ginbuf;		/* GSS input token */
 	gss_buffer_desc goutbuf;	/* GSS output token */
+	PQExpBufferData gbuf;		/* GSS encryption buffering */
+	size_t gcursor;				/* GSS buffering position */
+	PQExpBufferData gwritebuf;	/* GSS nonblocking write buffering */
+	size_t gwritecurs;			/* GSS write buffer position */
+	bool gss_disable_enc;		/* GSS encryption recognized by server */
+	bool gss_auth_done;			/* GSS authentication finished */
+	bool gss_decrypted;			/* GSS decrypted first message */
+	char *gss_require_encrypt;	/* GSS encryption required */
 #endif
 
 #ifdef ENABLE_SSPI
@@ -620,7 +629,7 @@ extern void pqsecure_destroy(void);
 extern PostgresPollingStatusType pqsecure_open_client(PGconn *);
 extern void pqsecure_close(PGconn *);
 extern ssize_t pqsecure_read(PGconn *, void *ptr, size_t len);
-extern ssize_t pqsecure_write(PGconn *, const void *ptr, size_t len);
+extern ssize_t pqsecure_write(PGconn *, void *ptr, size_t len);
 extern ssize_t pqsecure_raw_read(PGconn *, void *ptr, size_t len);
 extern ssize_t pqsecure_raw_write(PGconn *, const void *ptr, size_t len);
 
@@ -640,6 +649,14 @@ extern void pgtls_close(PGconn *conn);
 extern ssize_t pgtls_read(PGconn *conn, void *ptr, size_t len);
 extern bool pgtls_read_pending(PGconn *conn);
 extern ssize_t pgtls_write(PGconn *conn, const void *ptr, size_t len);
+
+/*
+ * The GSSAPI backend in fe-secure-gssapi.c provides these functions.
+ */
+#ifdef ENABLE_GSS
+extern ssize_t pg_GSS_read(PGconn *conn, void *ptr, size_t len);
+extern ssize_t pg_GSS_write(PGconn *conn, void *ptr, size_t len);
+#endif
 
 /*
  * this is so that we can check if a connection is non-blocking internally

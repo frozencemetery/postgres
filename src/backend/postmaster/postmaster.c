@@ -2036,6 +2036,10 @@ retry1:
 				port->user_name = pstrdup(valptr);
 			else if (strcmp(nameptr, "options") == 0)
 				port->cmdline_options = pstrdup(valptr);
+#ifdef ENABLE_GSS
+			else if (strcmp(nameptr, "gss_encrypt") == 0)
+				port->gss->gss_encrypt = pstrdup(valptr);
+#endif
 			else if (strcmp(nameptr, "replication") == 0)
 			{
 				/*
@@ -2355,6 +2359,17 @@ ConnCreate(int serverFd)
 		ExitPostmaster(1);
 	}
 #endif
+#ifdef ENABLE_GSS
+	{
+		MemoryContext save = CurrentMemoryContext;
+		CurrentMemoryContext = TopMemoryContext;
+
+		initStringInfo(&port->gss->buf);
+		initStringInfo(&port->gss->writebuf);
+
+		CurrentMemoryContext = save;
+	}
+#endif
 #endif
 
 	return port;
@@ -2371,7 +2386,15 @@ ConnFree(Port *conn)
 	secure_close(conn);
 #endif
 	if (conn->gss)
+	{
+#ifdef ENABLE_GSS
+		if (conn->gss->buf.data)
+			pfree(conn->gss->buf.data);
+		if (conn->gss->writebuf.data)
+			pfree(conn->gss->writebuf.data);
+#endif
 		free(conn->gss);
+	}
 	free(conn);
 }
 
@@ -4642,6 +4665,17 @@ SubPostmasterMain(int argc, char *argv[])
 		ereport(FATAL,
 				(errcode(ERRCODE_OUT_OF_MEMORY),
 				 errmsg("out of memory")));
+#endif
+#ifdef ENABLE_GSS
+	{
+		MemoryContext save = CurrentMemoryContext;
+		CurrentMemoryContext = TopMemoryContext;
+
+		initStringInfo(&port->gss->buf);
+		initStringInfo(&port->gss->writebuf);
+
+		CurrentMemoryContext = save;
+	}
 #endif
 
 	/* Check we got appropriate args */
