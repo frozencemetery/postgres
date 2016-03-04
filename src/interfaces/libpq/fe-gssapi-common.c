@@ -61,3 +61,43 @@ pg_GSS_error(const char *mprefix, PGconn *conn,
 	/* Add the minor codes as well */
 	pg_GSS_error_int(&conn->errorMessage, mprefix, min_stat, GSS_C_MECH_CODE);
 }
+
+/*
+ * Only consider encryption when GSS context is complete
+ */
+ssize_t
+pg_GSS_should_crypto(PGconn *conn)
+{
+	OM_uint32 major, minor;
+	int open = 1;
+
+	if (conn->gctx == GSS_C_NO_CONTEXT)
+		return 0;
+	else if (conn->gencrypt)
+		return 1;
+
+	major = gss_inquire_context(&minor, conn->gctx,
+								NULL, NULL, NULL, NULL, NULL, NULL,
+								&open);
+	if (major == GSS_S_NO_CONTEXT)
+	{
+		/*
+         * In MIT krb5 < 1.14, it was not possible to call gss_inquire_context
+         * on an incomplete context.  This was a violation of rfc2744 and has
+         * been corrected in https://github.com/krb5/krb5/pull/285
+         */
+		return 0;
+	}
+	else if (GSS_ERROR(major))
+	{
+		pg_GSS_error(libpq_gettext("GSSAPI context state error"), conn,
+					 major, minor);
+		return -1;
+	}
+	else if (open != 0)
+	{
+		conn->gencrypt = true;
+		return 1;
+	}
+	return 0;
+}

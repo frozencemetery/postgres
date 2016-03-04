@@ -111,6 +111,20 @@ pg_GSS_continue(PGconn *conn)
 	if (maj_stat == GSS_S_COMPLETE)
 		gss_release_name(&lmin_s, &conn->gtarg_nam);
 
+	if (pg_GSS_should_crypto(conn) && conn->inEnd != conn->inStart)
+	{
+		/*
+		 * If we've any data from the server buffered, it's encrypted and we
+		 * need to decrypt it.  Pass it back down a layer to decrypt.
+		 *
+		 * At this point in time, conn->inStart and conn->inCursor match.
+		 */
+		appendBinaryPQExpBuffer(&conn->gwritebuf,
+								conn->inBuffer + conn->inStart,
+								conn->inEnd - conn->inStart);
+		conn->inEnd = conn->inStart;
+	}
+	
 	return STATUS_OK;
 }
 
