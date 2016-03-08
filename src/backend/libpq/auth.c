@@ -719,7 +719,8 @@ pg_GSS_recvauth(Port *port)
 	OM_uint32	maj_stat,
 				min_stat,
 				lmin_s,
-				gflags;
+				gflags,
+				target_flags;
 	int			mtype;
 	int			ret;
 	StringInfoData buf;
@@ -872,6 +873,23 @@ pg_GSS_recvauth(Port *port)
 		 * Release service principal credentials
 		 */
 		gss_release_cred(&min_stat, &port->gss->cred);
+	}
+
+	/*
+	 * GSS_C_REPLAY_FLAG (request replay detection) and GSS_C_SEQUENCE_FLAG
+	 * (out-of-sequence detection) are missing for compatibility with older
+	 * clients which do not request these flags.  They should be added in as
+	 * soon as we no longer care about pre-9.6 clients.
+	 *
+	 * Newer clients will request both GSS_C_REPLAY_FLAGS and
+	 * GSS_C_SEQUENCE_FLAGS as well as the flags we check for below, so lack
+	 * of these two flags is not the end of the world.
+	 */
+	target_flags = GSS_C_MUTUAL_FLAG | GSS_C_CONF_FLAG | GSS_C_INTEG_FLAG;
+	if ((gflags & target_flags) != target_flags)
+	{
+		ereport(FATAL, (errmsg("GSSAPI did not provide required flags")));
+		return STATUS_ERROR;
 	}
 
 	/*
