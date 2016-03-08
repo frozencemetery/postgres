@@ -17,17 +17,6 @@
 
 #include "libpq/be-gssapi-common.h"
 
-#if defined(WIN32) && !defined(WIN32_ONLY_COMPILER)
-/*
- * MIT Kerberos GSSAPI DLL doesn't properly export the symbols for MingW
- * that contain the OIDs required. Redefine here, values copied
- * from src/athena/auth/krb5/src/lib/gssapi/generic/gssapi_generic.c
- */
-static const gss_OID_desc GSS_C_NT_USER_NAME_desc =
-{10, (void *) "\x2a\x86\x48\x86\xf7\x12\x01\x02\x01\x02"};
-static GSS_DLLIMP gss_OID GSS_C_NT_USER_NAME = &GSS_C_NT_USER_NAME_desc;
-#endif
-
 void
 pg_GSS_error(int severity, char *errmsg, OM_uint32 maj_stat, OM_uint32 min_stat)
 {
@@ -36,31 +25,40 @@ pg_GSS_error(int severity, char *errmsg, OM_uint32 maj_stat, OM_uint32 min_stat)
 				msg_ctx;
 	char		msg_major[128],
 				msg_minor[128];
+	short		i;
+
+	gmsg.value = NULL;
+	gmsg.length = 0;
 
 	/* Fetch major status message */
 	msg_ctx = 0;
-	gss_display_status(&lmin_s, maj_stat, GSS_C_GSS_CODE,
-					   GSS_C_NO_OID, &msg_ctx, &gmsg);
-	strlcpy(msg_major, gmsg.value, sizeof(msg_major));
-	gss_release_buffer(&lmin_s, &gmsg);
+	i = 0;
+	do
+	{
+		gss_display_status(&lmin_s, maj_stat, GSS_C_GSS_CODE,
+						   GSS_C_NO_OID, &msg_ctx, &gmsg);
+		strlcpy(msg_major + i, gmsg.value, sizeof(msg_major) - i);
+		gss_release_buffer(&lmin_s, &gmsg);
+	}
+	while (msg_ctx && i < sizeof(msg_major));
 
-	if (msg_ctx)
-
-		/*
-		 * More than one message available. XXX: Should we loop and read all
-		 * messages? (same below)
-		 */
+	if (msg_ctx || i == sizeof(msg_major))
 		ereport(WARNING,
 				(errmsg_internal("incomplete GSS error report")));
 
 	/* Fetch mechanism minor status message */
 	msg_ctx = 0;
-	gss_display_status(&lmin_s, min_stat, GSS_C_MECH_CODE,
-					   GSS_C_NO_OID, &msg_ctx, &gmsg);
-	strlcpy(msg_minor, gmsg.value, sizeof(msg_minor));
-	gss_release_buffer(&lmin_s, &gmsg);
+	i = 0;
+	do
+	{
+		gss_display_status(&lmin_s, min_stat, GSS_C_MECH_CODE,
+						   GSS_C_NO_OID, &msg_ctx, &gmsg);
+		strlcpy(msg_minor + i, gmsg.value, sizeof(msg_minor) - i);
+		gss_release_buffer(&lmin_s, &gmsg);
+	}
+	while (msg_ctx && i < sizeof(msg_minor));
 
-	if (msg_ctx)
+	if (msg_ctx || i == sizeof(msg_minor))
 		ereport(WARNING,
 				(errmsg_internal("incomplete GSS minor error report")));
 
