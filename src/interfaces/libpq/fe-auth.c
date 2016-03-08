@@ -57,20 +57,24 @@ pg_GSS_continue(PGconn *conn)
 {
 	OM_uint32	maj_stat,
 				min_stat,
-				lmin_s;
+				lmin_s,
+				req_flags,
+				ret_flags;
 
+	req_flags = GSS_C_MUTUAL_FLAG | GSS_C_REPLAY_FLAG | GSS_C_SEQUENCE_FLAG |
+		GSS_C_CONF_FLAG | GSS_C_INTEG_FLAG;
 	maj_stat = gss_init_sec_context(&min_stat,
 									GSS_C_NO_CREDENTIAL,
 									&conn->gctx,
 									conn->gtarg_nam,
 									GSS_C_NO_OID,
-									GSS_C_MUTUAL_FLAG,
+									req_flags,
 									0,
 									GSS_C_NO_CHANNEL_BINDINGS,
 		  (conn->gctx == GSS_C_NO_CONTEXT) ? GSS_C_NO_BUFFER : &conn->ginbuf,
 									NULL,
 									&conn->goutbuf,
-									NULL,
+									&ret_flags,
 									NULL);
 
 	if (conn->gctx != GSS_C_NO_CONTEXT)
@@ -109,7 +113,16 @@ pg_GSS_continue(PGconn *conn)
 	}
 
 	if (maj_stat == GSS_S_COMPLETE)
+	{
 		gss_release_name(&lmin_s, &conn->gtarg_nam);
+
+		if ((ret_flags & req_flags) != req_flags)
+		{
+			printfPQExpBuffer(&conn->errorMessage,
+							  libpq_gettext("GSSAPI did not provide required flags\n"));
+			return STATUS_ERROR;
+		}
+	}
 
 	return STATUS_OK;
 }
