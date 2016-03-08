@@ -17,17 +17,6 @@
 
 #include "postgres.h"
 
-#if defined(WIN32) && !defined(WIN32_ONLY_COMPILER)
-/*
- * MIT Kerberos GSSAPI DLL doesn't properly export the symbols for MingW
- * that contain the OIDs required. Redefine here, values copied
- * from src/athena/auth/krb5/src/lib/gssapi/generic/gssapi_generic.c
- */
-static const gss_OID_desc GSS_C_NT_USER_NAME_desc =
-{10, (void *) "\x2a\x86\x48\x86\xf7\x12\x01\x02\x01\x02"};
-static GSS_DLLIMP gss_OID GSS_C_NT_USER_NAME = &GSS_C_NT_USER_NAME_desc;
-#endif
-
 void
 pg_GSS_error(int severity, char *errmsg, OM_uint32 maj_stat, OM_uint32 min_stat)
 {
