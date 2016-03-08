@@ -717,7 +717,8 @@ pg_GSS_recvauth(Port *port)
 	OM_uint32	maj_stat,
 				min_stat,
 				lmin_s,
-				gflags;
+				gflags,
+				target_flags;
 	int			mtype;
 	int			ret;
 	StringInfoData buf;
@@ -815,8 +816,7 @@ pg_GSS_recvauth(Port *port)
 		elog(DEBUG4, "Processing received GSS token of length %u",
 			 (unsigned int) gbuf.length);
 
-		maj_stat = gss_accept_sec_context(
-										  &min_stat,
+		maj_stat = gss_accept_sec_context(&min_stat,
 										  &port->gss->ctx,
 										  port->gss->cred,
 										  &gbuf,
@@ -870,6 +870,14 @@ pg_GSS_recvauth(Port *port)
 		 * Release service principal credentials
 		 */
 		gss_release_cred(&min_stat, &port->gss->cred);
+	}
+
+	target_flags = GSS_C_MUTUAL_FLAG | GSS_C_REPLAY_FLAG |
+		GSS_C_SEQUENCE_FLAG | GSS_C_CONF_FLAG | GSS_C_INTEG_FLAG;
+	if ((gflags & target_flags) != target_flags)
+	{
+		ereport(FATAL, (errmsg("GSSAPI did no provide required flags")));
+		return STATUS_ERROR;
 	}
 
 	/*
