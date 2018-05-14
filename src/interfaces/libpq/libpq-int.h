@@ -22,6 +22,7 @@
 
 /* We assume libpq-fe.h has already been included. */
 #include "libpq-events.h"
+#include "lib/stringinfo.h"
 
 #include <time.h>
 #ifndef WIN32
@@ -476,6 +477,10 @@ struct pg_conn
 #ifdef ENABLE_GSS
 	gss_ctx_id_t gctx;			/* GSS context */
 	gss_name_t	gtarg_nam;		/* GSS target name */
+	PQExpBufferData gbuf;		/* GSS encryption buffering */
+	size_t gcursor;				/* GSS buffering position */
+	PQExpBufferData gwritebuf;	/* GSS nonblocking write buffering */
+	size_t gwritecurs;			/* GSS write buffer position */
 #endif
 
 #ifdef ENABLE_SSPI
