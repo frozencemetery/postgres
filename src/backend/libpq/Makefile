@@ -22,7 +22,7 @@ OBJS += be-secure-openssl.o
 endif
 
 ifeq ($(with_gssapi),yes)
-OBJS += be-gssapi-common.o
+OBJS += be-gssapi-common.o be-secure-gssapi.o
 endif
 
 include $(top_srcdir)/src/backend/common.mk

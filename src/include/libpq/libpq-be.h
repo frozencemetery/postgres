@@ -66,7 +66,7 @@ typedef struct
 #include "datatype/timestamp.h"
 #include "libpq/hba.h"
 #include "libpq/pqcomm.h"
-
+#include "lib/stringinfo.h"
 
 typedef enum CAC_state
 {
@@ -86,6 +86,8 @@ typedef struct
 	gss_cred_id_t cred;			/* GSSAPI connection cred's */
 	gss_ctx_id_t ctx;			/* GSSAPI connection context */
 	gss_name_t	name;			/* GSSAPI client name */
+	StringInfoData buf;			/* GSSAPI encryption data buffering */
+	StringInfoData writebuf;	/* GSSAPI nonblocking write buffering */
 #endif
 } pg_gssinfo;
 #endif
