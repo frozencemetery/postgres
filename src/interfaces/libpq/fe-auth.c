@@ -150,18 +150,7 @@ pg_GSS_continue(PGconn *conn, int payloadlen)
 static int
 pg_GSS_startup(PGconn *conn, int payloadlen)
 {
-	OM_uint32	maj_stat,
-				min_stat;
-	int			maxlen;
-	gss_buffer_desc temp_gbuf;
-	char	   *host = PQhost(conn);
-
-	if (!(host && host[0] != '\0'))
-	{
-		printfPQExpBuffer(&conn->errorMessage,
-						  libpq_gettext("host name must be specified\n"));
-		return STATUS_ERROR;
-	}
+	int ret;
 
 	if (conn->gctx)
 	{
@@ -170,33 +159,9 @@ pg_GSS_startup(PGconn *conn, int payloadlen)
 		return STATUS_ERROR;
 	}
 
-	/*
-	 * Import service principal name so the proper ticket can be acquired by
-	 * the GSSAPI system.
-	 */
-	maxlen = NI_MAXHOST + strlen(conn->krbsrvname) + 2;
-	temp_gbuf.value = (char *) malloc(maxlen);
-	if (!temp_gbuf.value)
-	{
-		printfPQExpBuffer(&conn->errorMessage,
-						  libpq_gettext("out of memory\n"));
-		return STATUS_ERROR;
-	}
-	snprintf(temp_gbuf.value, maxlen, "%s@%s",
-			 conn->krbsrvname, host);
-	temp_gbuf.length = strlen(temp_gbuf.value);
-
-	maj_stat = gss_import_name(&min_stat, &temp_gbuf,
-							   GSS_C_NT_HOSTBASED_SERVICE, &conn->gtarg_nam);
-	free(temp_gbuf.value);
-
-	if (maj_stat != GSS_S_COMPLETE)
-	{
-		pg_GSS_error(libpq_gettext("GSSAPI name import error"),
-					 conn,
-					 maj_stat, min_stat);
-		return STATUS_ERROR;
-	}
+	ret = pg_GSS_load_servicename(conn);
+	if (ret != STATUS_OK)
+		return ret;
 
 	/*
 	 * Initial packet is the same as a continuation packet with no initial

@@ -53,3 +53,76 @@ pg_GSS_error(const char *mprefix, PGconn *conn,
 	/* Add the minor codes as well */
 	pg_GSS_error_int(&conn->errorMessage, mprefix, min_stat, GSS_C_MECH_CODE);
 }
+
+/*
+ * Check if we can acquire credentials at all.
+ */
+bool
+pg_GSS_have_ccache(gss_cred_id_t *cred_out)
+{
+	OM_uint32 major, minor;
+	gss_cred_id_t cred = GSS_C_NO_CREDENTIAL;
+
+	major = gss_acquire_cred(&minor, GSS_C_NO_NAME, 0, GSS_C_NO_OID_SET,
+							 GSS_C_INITIATE, &cred, NULL, NULL);
+	if (GSS_ERROR(major))
+	{
+		*cred_out = NULL;
+		return false;
+	}
+	*cred_out = cred;
+	return true;
+}
+
+/*
+ * Try to load service name for a connection
+ */
+int
+pg_GSS_load_servicename(PGconn *conn)
+{
+	OM_uint32 maj_stat, min_stat;
+	int maxlen;
+	gss_buffer_desc temp_gbuf;
+	char *host;
+
+	if (conn->gtarg_nam != NULL)
+		/* Already taken care of - move along */
+		return STATUS_OK;
+
+	host = PQhost(conn);
+	if (!(host && host[0] != '\0'))
+	{
+		printfPQExpBuffer(&conn->errorMessage,
+						  libpq_gettext("host name must be specified\n"));
+		return STATUS_ERROR;
+	}
+
+	/*
+	 * Import service principal name so the proper ticket can be acquired by
+	 * the GSSAPI system.
+	 */
+	maxlen = NI_MAXHOST + strlen(conn->krbsrvname) + 2;
+	temp_gbuf.value = (char *) malloc(maxlen);
+	if (!temp_gbuf.value)
+	{
+		printfPQExpBuffer(&conn->errorMessage,
+						  libpq_gettext("out of memory\n"));
+		return STATUS_ERROR;
+	}
+	snprintf(temp_gbuf.value, maxlen, "%s@%s",
+			 conn->krbsrvname, host);
+	temp_gbuf.length = strlen(temp_gbuf.value);
+
+	maj_stat = gss_import_name(&min_stat, &temp_gbuf,
+							   GSS_C_NT_HOSTBASED_SERVICE, &conn->gtarg_nam);
+	free(temp_gbuf.value);
+
+	if (maj_stat != GSS_S_COMPLETE)
+	{
+		pg_GSS_error(libpq_gettext("GSSAPI name import error"),
+					 conn,
+					 maj_stat, min_stat);
+		return STATUS_ERROR;
+	}
+	return STATUS_OK;
+}
