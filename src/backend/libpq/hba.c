@@ -2075,6 +2075,17 @@ check_hba(hbaPort *port)
 					continue;
 			}
 
+			/* Check GSSAPI state */
+#ifdef ENABLE_GSS
+			if (port->gss->enc && hba->conntype == ctHostNoGSS)
+				continue;
+			else if (!port->gss->enc && hba->conntype == ctHostGSS)
+				continue;
+#else
+			if (hba->conntype == ctHostGSS)
+				continue;
+#endif
+
 			/* Check IP address */
 			switch (hba->ip_cmp_method)
 			{
@@ -2407,6 +2418,12 @@ fill_hba_line(Tuplestorestate *tuple_store, TupleDesc tupdesc,
 				break;
 			case ctHostNoSSL:
 				typestr = "hostnossl";
+				break;
+			case ctHostGSS:
+				typestr = "hostgss";
+				break;
+			case ctHostNoGSS:
+				typestr = "hostnogss";
 				break;
 		}
 		if (typestr)
