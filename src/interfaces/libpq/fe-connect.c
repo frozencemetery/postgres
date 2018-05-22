@@ -2962,6 +2962,24 @@ keep_going:						/* We will come back to here until there is
 					/* OK, we read the message; mark data consumed */
 					conn->inStart = conn->inCursor;
 
+#ifdef ENABLE_GSS
+					/*
+					 * If gssmode is "prefer" and we're using GSSAPI, retry
+					 * without it.
+					 */
+					if (conn->gssenc && conn->gssmode[0] == 'p')
+					{
+						OM_uint32 minor;
+						/* postmaster expects us to drop the connection */
+						conn->try_gss = false;
+						conn->gssenc = false;
+						gss_delete_sec_context(&minor, &conn->gctx, NULL);
+						pqDropConnection(conn, true);
+						conn->status = CONNECTION_NEEDED;
+						goto keep_going;
+					}
+#endif
+
 #ifdef USE_SSL
 
 					/*
