@@ -994,7 +994,9 @@ parse_hba_line(TokenizedLine *tok_line, int elevel)
 	}
 	else if (strcmp(token->string, "host") == 0 ||
 			 strcmp(token->string, "hostssl") == 0 ||
-			 strcmp(token->string, "hostnossl") == 0)
+			 strcmp(token->string, "hostnossl") == 0 ||
+			 strcmp(token->string, "hostgss") == 0 ||
+			 strcmp(token->string, "hostnogss") == 0)
 	{
 
 		if (token->string[4] == 's')	/* "hostssl" */
@@ -1022,10 +1024,23 @@ parse_hba_line(TokenizedLine *tok_line, int elevel)
 			*err_msg = "hostssl record cannot match because SSL is not supported by this build";
 #endif
 		}
-		else if (token->string[4] == 'n')	/* "hostnossl" */
+		else if (token->string[4] == 'g')	/* "hostgss" */
 		{
-			parsedline->conntype = ctHostNoSSL;
+			parsedline->conntype = ctHostGSS;
+#ifndef ENABLE_GSS
+			ereport(elevel,
+					(errcode(ERRCODE_CONFIG_FILE_ERROR),
+					 errmsg("hostgss record cannot match because GSSAPI is not supported by this build"),
+					 errhint("Compile with --with-gssapi to use GSSAPI connections."),
+					 errcontext("line %d of configuration file \"%s\"",
+								line_num, HbaFileName)));
+			*err_msg = "hostgss record cannot match because GSSAPI is not supported by this build";
+#endif
 		}
+		else if (token->string[4] == 'n' && token->string[6] == 's')
+			parsedline->conntype = ctHostNoSSL;
+		else if (token->string[4] == 'n' && token->string[6] == 'g')
+			parsedline->conntype = ctHostNoGSS;
 		else
 		{
 			/* "host" */

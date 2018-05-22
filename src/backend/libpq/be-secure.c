@@ -153,6 +153,14 @@ retry:
 	}
 	else
 #endif
+#ifdef ENABLE_GSS
+	if (port->gss->enc)
+	{
+		n = be_gssapi_read(port, ptr, len);
+		waitfor = WL_SOCKET_READABLE;
+	}
+	else
+#endif
 	{
 		n = secure_raw_read(port, ptr, len);
 		waitfor = WL_SOCKET_READABLE;
@@ -253,6 +261,14 @@ retry:
 	if (port->ssl_in_use)
 	{
 		n = be_tls_write(port, ptr, len, &waitfor);
+	}
+	else
+#endif
+#ifdef ENABLE_GSS
+	if (port->gss->enc)
+	{
+		n = be_gssapi_write(port, ptr, len);
+		waitfor = WL_SOCKET_WRITEABLE;
 	}
 	else
 #endif

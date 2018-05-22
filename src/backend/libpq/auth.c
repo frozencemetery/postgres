@@ -175,6 +175,7 @@ bool		pg_krb_caseins_users;
 #ifdef ENABLE_GSS
 #include "be-gssapi-common.h"
 
+static int	pg_GSS_checkauth(Port *port);
 static int	pg_GSS_recvauth(Port *port);
 #endif							/* ENABLE_GSS */
 
@@ -520,8 +521,13 @@ ClientAuthentication(Port *port)
 
 		case uaGSS:
 #ifdef ENABLE_GSS
-			sendAuthRequest(port, AUTH_REQ_GSS, NULL, 0);
-			status = pg_GSS_recvauth(port);
+			if (port->gss->enc)
+				status = pg_GSS_checkauth(port);
+			else
+			{
+				sendAuthRequest(port, AUTH_REQ_GSS, NULL, 0);
+				status = pg_GSS_recvauth(port);
+			}
 #else
 			Assert(false);
 #endif
@@ -1048,7 +1054,6 @@ pg_GSS_recvauth(Port *port)
 				lmin_s,
 				gflags;
 	int			mtype;
-	int			ret;
 	StringInfoData buf;
 	gss_buffer_desc gbuf;
 
@@ -1201,10 +1206,17 @@ pg_GSS_recvauth(Port *port)
 		 */
 		gss_release_cred(&min_stat, &port->gss->cred);
 	}
+	return pg_GSS_checkauth(port);
+}
+
+static int
+pg_GSS_checkauth(Port *port)
+{
+	int ret;
+	OM_uint32 maj_stat, min_stat;
+	gss_buffer_desc gbuf;
 
 	/*
-	 * GSS_S_COMPLETE indicates that authentication is now complete.
-	 *
 	 * Get the name of the user that authenticated, and compare it to the pg
 	 * username that was specified for the connection.
 	 */
@@ -1246,7 +1258,7 @@ pg_GSS_recvauth(Port *port)
 				elog(DEBUG2,
 					 "GSSAPI realm (%s) and configured realm (%s) don't match",
 					 cp, port->hba->krb_realm);
-				gss_release_buffer(&lmin_s, &gbuf);
+				gss_release_buffer(&min_stat, &gbuf);
 				return STATUS_ERROR;
 			}
 		}
@@ -1256,14 +1268,14 @@ pg_GSS_recvauth(Port *port)
 		elog(DEBUG2,
 			 "GSSAPI did not return realm but realm matching was requested");
 
-		gss_release_buffer(&lmin_s, &gbuf);
+		gss_release_buffer(&min_stat, &gbuf);
 		return STATUS_ERROR;
 	}
 
 	ret = check_usermap(port->hba->usermap, port->user_name, gbuf.value,
 						pg_krb_caseins_users);
 
-	gss_release_buffer(&lmin_s, &gbuf);
+	gss_release_buffer(&min_stat, &gbuf);
 
 	return ret;
 }
