@@ -381,6 +381,17 @@ ClientAuthentication(Port *port)
 					 errmsg("connection requires a valid client certificate")));
 	}
 
+#ifdef ENABLE_GSS
+	if (port->gss->enc && port->hba->auth_method != uaReject &&
+		port->hba->auth_method != uaImplicitReject &&
+		port->hba->auth_method != uaTrust &&
+		port->hba->auth_method != uaGSS)
+	{
+		ereport(FATAL, (errcode(ERRCODE_INVALID_AUTHORIZATION_SPECIFICATION),
+				 errmsg("GSSAPI encryption cannot be combined with non-GSSAPI authentication")));
+	}
+#endif
+
 	/*
 	 * Now proceed to do the actual authentication check
 	 */

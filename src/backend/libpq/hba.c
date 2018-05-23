@@ -1419,6 +1419,19 @@ parse_hba_line(TokenizedLine *tok_line, int elevel)
 		*err_msg = "gssapi authentication is not supported on local sockets";
 		return NULL;
 	}
+	if (parsedline->conntype == ctHostGSS &&
+		parsedline->auth_method != uaGSS &&
+		parsedline->auth_method != uaReject &&
+		parsedline->auth_method != uaTrust)
+	{
+		ereport(elevel,
+				(errcode(ERRCODE_CONFIG_FILE_ERROR),
+				 errmsg("GSSAPI encryption only supports gss, trust, or reject authentication"),
+				 errcontext("line %d of configuration file \"%s\"",
+							line_num, HbaFileName)));
+		*err_msg = "GSSAPI encryption only supports gss, trust, or reject authenticaion";
+		return NULL;
+	}
 
 	if (parsedline->conntype != ctLocal &&
 		parsedline->auth_method == uaPeer)
