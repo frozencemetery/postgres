@@ -193,7 +193,7 @@ sub mkvcbuild
 	}
 	if (!$solution->{options}->{gss})
 	{
-		$postgres->RemoveFile('src/backennd/libpq/be-gssapi-common.c');
+		$postgres->RemoveFile('src/backend/libpq/be-gssapi-common.c');
 	}
 
 	my $snowball = $solution->AddProject('dict_snowball', 'dll', '',
