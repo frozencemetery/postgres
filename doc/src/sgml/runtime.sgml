@@ -2026,9 +2026,10 @@ pg_dumpall -p 5432 | psql -d postgres -p 5433
   <para>
     To prevent spoofing with GSSAPI, the server must be configured to accept
     only <literal>hostgss</literal> connections
-    (<xref linkend="auth-pg-hba.conf"/>) and use <literal>gss</literal>
+    (<xref linkend="auth-pg-hba-conf"/>) and use <literal>gss</literal>
     authentication with them.  The TCP client must connect
     using <literal>gssmode=require</literal>.
+  </para>
  </sect1>
 
  <sect1 id="encryption-options">
@@ -2127,9 +2128,7 @@ pg_dumpall -p 5432 | psql -d postgres -p 5433
       (<literal>hostssl</literal>). Also, clients can specify that they
       connect to servers only via SSL.
      </para>
-    </listitem>
 
-    <listitem>
      <para>
       GSSAPI-encrypted connections encrypt all data sent across the network,
       including queries and data returned.  (No password is sent across the
@@ -2140,9 +2139,7 @@ pg_dumpall -p 5432 | psql -d postgres -p 5433
       connect to servers only on GSSAPI-encrypted connections
       (<literal>gssmode=require</literal>).
      </para>
-    </listitem>
 
-    <listitem>
      <para>
       <application>Stunnel</application> or
       <application>SSH</application> can also be used to encrypt
@@ -2549,7 +2546,7 @@ openssl x509 -req -in server.csr -text -days 365 \
    increased security.  Support requires that a <acronym>GSSAPI</acronym>
    implementation (such as MIT krb5) is installed on both client and server
    systems, and that support in <productname>PostgreSQL</productname> is
-   enabled at build time (see <xref linked="installation"/>).
+   enabled at build time (see <xref linkend="installation"/>).
   </para>
 
   <sect2 id="gssapi-setup">

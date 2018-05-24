@@ -1360,9 +1360,6 @@ postgresql://%2Fvar%2Flib%2Fpostgresql/dbname
           </listitem>
          </varlistentry>
         </variablelist>
-
-        See <xref linkend="libpq-gss"/> for a detailed description of how
-        these options work.
        </para>
 
        <para>
