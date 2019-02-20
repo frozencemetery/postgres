@@ -174,3 +174,4 @@ PQresultVerboseErrorMessage 171
 PQencryptPasswordConn     172
 PQresultMemorySize        173
 PQhostaddr                174
+PQprintGSSENCInfo         175

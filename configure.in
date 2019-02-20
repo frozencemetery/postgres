@@ -1191,6 +1191,26 @@ if test "$with_gssapi" = yes ; then
   if test "$PORTNAME" != "win32"; then
     AC_SEARCH_LIBS(gss_init_sec_context, [gssapi_krb5 gss 'gssapi -lkrb5 -lcrypto'], [],
                    [AC_MSG_ERROR([could not find function 'gss_init_sec_context' required for GSSAPI])])
+
+    AC_COMPILE_IFELSE(
+      [AC_LANG_PROGRAM(
+        [#include <krb5.h>],
+        [[(void)krb5_enctype_to_name]]
+      )],
+      [AC_DEFINE(HAVE_KRB5_ENCTYPE_TO_NAME, 1,
+        [Define to 1 if you have support for krb5_enctype_to_name],
+      []
+    )])
+
+    AC_COMPILE_IFELSE(
+      [AC_LANG_PROGRAM(
+        [#include <gssapi/gssapi_krb5.h>],
+        [[gss_OID g = GSS_C_SEC_CONTEXT_SASL_SSF]]
+      )],
+      [AC_DEFINE(HAVE_GSS_C_SEC_CONTEXT_SASL_SSF, 1,
+        [Define to 1 if you have support for GSS_C_SEC_CONTEXT_SASL_SSF],
+      []
+    )])
   else
     LIBS="$LIBS -lgssapi32"
   fi

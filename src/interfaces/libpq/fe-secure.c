@@ -434,6 +434,17 @@ PQsslAttributeNames(PGconn *conn)
 }
 #endif							/* USE_SSL */
 
+/* Dummy versions of GSSAPI logging function, when built without GSS support */
+#ifndef ENABLE_GSS
+
+void
+PQprintGSSENCInfo(PGconn *conn)
+{
+	return;
+}
+
+#endif							/* ENABLE_GSS */
+
 
 #if defined(ENABLE_THREAD_SAFETY) && !defined(WIN32)
 

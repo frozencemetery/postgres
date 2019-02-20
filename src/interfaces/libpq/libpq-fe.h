@@ -347,6 +347,9 @@ extern void PQinitSSL(int do_init);
 /* More detailed way to tell libpq whether it needs to initialize OpenSSL */
 extern void PQinitOpenSSL(int do_ssl, int do_crypto);
 
+/* GSSAPI logging function */
+extern void PQprintGSSENCInfo(PGconn *conn);
+
 /* Set verbosity for PQerrorMessage and PQresultErrorMessage */
 extern PGVerbosity PQsetErrorVerbosity(PGconn *conn, PGVerbosity verbosity);
 

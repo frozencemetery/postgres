@@ -621,6 +621,7 @@ exec_command_conninfo(PsqlScanState scan_state, bool active_branch)
 						   db, PQuser(pset.db), host, PQport(pset.db));
 			}
 			printSSLInfo();
+			PQprintGSSENCInfo(pset.db);
 		}
 	}
 
@@ -3184,6 +3185,7 @@ connection_warnings(bool in_startup)
 		checkWin32Codepage();
 #endif
 		printSSLInfo();
+		PQprintGSSENCInfo(pset.db);
 	}
 }
 

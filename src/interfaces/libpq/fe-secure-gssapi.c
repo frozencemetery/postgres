@@ -17,12 +17,22 @@
 #include "libpq-int.h"
 #include "fe-gssapi-common.h"
 
+#include "port/pg_bswap.h"
+
+#include <gssapi/gssapi_krb5.h>
+#include <krb5.h>
+
 /*
  * Require encryption support, as well as mutual authentication and
  * tamperproofing measures.
  */
 #define GSS_REQUIRED_FLAGS GSS_C_MUTUAL_FLAG | GSS_C_REPLAY_FLAG | \
 	GSS_C_SEQUENCE_FLAG | GSS_C_CONF_FLAG | GSS_C_INTEG_FLAG
+
+static ssize_t send_buffered_data(PGconn *conn, size_t len);
+static ssize_t read_from_buffer(PGconn *conn, void *ptr, size_t len);
+static ssize_t load_packet_length(PGconn *conn);
+static ssize_t load_packet(PGconn *conn, size_t len);
 
 /*
  * Helper function to write any pending data.  Returns len when it has all
@@ -391,4 +401,121 @@ pqsecure_open_gss(PGconn *conn)
 	appendBinaryPQExpBuffer(&conn->gwritebuf, output.value, output.length);
 	gss_release_buffer(&minor, &output);
 	return PGRES_POLLING_WRITING;
+}
+
+#ifndef HAVE_KRB5_ENCTYPE_TO_NAME
+/* Heimdal doesn't (yet) support krb5_enctype_to_name(), but its
+ * krb5_enctype_to_string() has similar behavior.  (MIT's
+ * krb5_enctype_to_string() produces very verbose output that we don't want,
+ * and has different calling convention.)  This wrapper gives us approximate
+ * parity between the two.
+ *
+ * Heimdal issue: https://github.com/heimdal/heimdal/issues/525 */
+static krb5_error_code
+krb5_enctype_to_name(krb5_enctype enctype, krb5_boolean shortest,
+					 char *buffer, size_t buflen)
+{
+	krb5_error_code ret;
+	krb5_context ctx;
+	char	   *outstr = NULL;
+
+	ret = krb5_init_context(&ctx);
+	if (ret != 0)
+		return ret;
+
+	ret = krb5_enctype_to_string(ctx, enctype, &outstr);
+	if (ret != 0)
+		goto cleanup;
+
+	strncpy(buffer, outstr, buflen);
+
+cleanup:
+	free(outstr);
+	krb5_free_context(ctx);
+	return ret;
+}
+#endif
+
+/*
+ * Prints information about the current GSS-Encrypted connection, if GSS
+ * encryption is in use.
+ */
+void
+PQprintGSSENCInfo(PGconn *conn)
+{
+	OM_uint32	major,
+				minor;
+	gss_OID		mech = GSS_C_NO_OID;
+	gss_krb5_lucid_context_v1_t *lucid = NULL;
+	gss_buffer_set_t bufset = GSS_C_NO_BUFFER_SET;
+	char		enctype_buf[128];
+	krb5_error_code ret;
+	void	   *lptr;
+
+	if (!conn || !conn->gctx)
+		return;
+
+	/* Get underlying GSS mechanism. */
+	(void) gss_inquire_context(&minor, conn->gctx, NULL, NULL, NULL, &mech,
+							   NULL, NULL, NULL);
+	if (gss_oid_equal(mech, gss_mech_krb5))
+	{
+		/* Preferred case - use lucid interface to get underlying enctype. */
+		major = gss_krb5_export_lucid_sec_context(&minor, &conn->gctx, 1,
+												  &lptr);
+		if (major == GSS_S_COMPLETE)
+			lucid = lptr;
+		if (major == GSS_S_COMPLETE && lucid->protocol == 1)
+		{
+			ret = krb5_enctype_to_name(lucid->cfx_kd.ctx_key.type, 0,
+									   enctype_buf, sizeof(enctype_buf));
+			if (ret == 0)
+			{
+				printf(_("GSSAPI encrypted connection (krb5 using %s)\n"),
+					   enctype_buf);
+				goto cleanup;
+			}
+		}
+	}
+
+#ifdef HAVE_GSS_C_SEC_CONTEXT_SASL_SSF
+	{
+		uint32		ssf_result = 0,
+					tmp4;
+
+		/*
+		 * Fall back to trying for SASL SSF - query the value and range-check
+		 * the result.  Not all GSSAPI mechanisms can implement this
+		 * extension, and it's not supported by the Heimdal GSSAPI
+		 * implementation.
+		 */
+		major = gss_inquire_sec_context_by_oid(&minor, conn->gctx,
+											   GSS_C_SEC_CONTEXT_SASL_SSF,
+											   &bufset);
+		if (major == GSS_S_COMPLETE && bufset->elements[0].length == 4)
+		{
+			/*
+			 * gss_inquire_sec_context_by_oid() for GSS_C_SEC_CONTEXT_SASL_SSF
+			 * returns a 32bit integer in network byte-order, so we need to
+			 * adjust for that and then print the integer into our text
+			 * string.
+			 */
+			memcpy(&tmp4, bufset->elements[0].value, 4);
+			ssf_result = pg_ntoh32(tmp4);
+			if (ssf_result >= 56 && ssf_result <= 256)
+			{
+				printf(_("GSSAPI encrypted connection (~%d bits)\n"),
+					   ssf_result);
+				goto cleanup;
+			}
+		}
+	}
+#endif
+
+	printf(_("GSSAPI encrypted connection (unknown mechanism)\n"));
+
+cleanup:
+	if (lucid)
+		gss_krb5_free_lucid_sec_context(&minor, lucid);
+	gss_release_buffer_set(&minor, &bufset);
 }

@@ -290,6 +290,9 @@
 /* Define to 1 if you have the <gssapi.h> header file. */
 #undef HAVE_GSSAPI_H
 
+/* Define to 1 if you have support for GSS_C_SEC_CONTEXT_SASL_SSF */
+#undef HAVE_GSS_C_SEC_CONTEXT_SASL_SSF
+
 /* Define to 1 if you have the <history.h> header file. */
 #undef HAVE_HISTORY_H
 
@@ -331,6 +334,9 @@
 
 /* Define to 1 if you have isinf(). */
 #undef HAVE_ISINF
+
+/* Define to 1 if you have support for krb5_enctype_to_name */
+#undef HAVE_KRB5_ENCTYPE_TO_NAME
 
 /* Define to 1 if you have the <langinfo.h> header file. */
 #undef HAVE_LANGINFO_H
